@@ -4,12 +4,13 @@
 # 2023 / 2025 Tore Simonsen
 
 import pandas as pd
-import InDesign_C as C
-import InDesign_RLC as RLC
-import InDesign_MXC as MXC
-import DiscoFunc
+from . import InDesign_C as C
+from . import InDesign_RLC as RLC
+from . import InDesign_MXC as MXC
+from . import DiscoFunc
 import numpy as np
 import os
+import logging
 from os import path
 
 # Windows GUI
@@ -24,6 +25,7 @@ label = ""
 artname = ""
 authname = ""
 tell = ""
+logger = logging.getLogger(__name__)
 
 def get_rightmost_numeric_element(s):
     # Split the string into words
@@ -48,6 +50,9 @@ def runRL():
     global fil
     global ext
     global tell
+
+    # Logg noe
+    logger.info("Kjører runRL")
 
     # øker størrelse på celler og antall kolonner
     pd.options.display.max_columns = None
