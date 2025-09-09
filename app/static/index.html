@@ -1,0 +1,14 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Diskografi-konvertering</title>
+<h1>Last opp CSV</h1>
+<form id="f" method="post" action="/convert" enctype="multipart/form-data">
+  <label>CSV 1: <input type="file" name="csv1" accept=".csv" required></label><br><br>
+  <label>CSV 2 (valgfritt): <input type="file" name="csv2" accept=".csv"></label><br><br>
+  <button type="submit">Konverter</button>
+</form>
+<script>
+  document.getElementById('f').addEventListener('submit', e => {
+    // lar nettleseren laste ned svaret som fil
+  });
+</script>
