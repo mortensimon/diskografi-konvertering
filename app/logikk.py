@@ -1,30 +1,20 @@
-
 # Filtreringsmuligheter på label, artistnavn og opphavsmenn (author) (også deler av disse)
 
 # 2023 / 2025 Tore Simonsen
 
-import pandas as pd
-from . import InDesign_C as C
-from . import InDesign_RLC as RLC
-from . import InDesign_MXC as MXC
-from . import DiscoFunc
-import numpy as np
-import os
 import logging
-from os import path
 
-# Windows GUI
-import tkinter as tk
-from tkinter import ttk
-from tkinter import filedialog as fd
+import numpy as np
+import pandas as pd
+
+from . import DiscoFunc
+from . import InDesign_C as C
+from . import InDesign_MXC as MXC
+from . import InDesign_RLC as RLC
 
 # globale variable
 fil = ""
 ext = ""
-label = ""
-artname = ""
-authname = ""
-tell = ""
 logger = logging.getLogger(__name__)
 
 def get_rightmost_numeric_element(s):
@@ -49,7 +39,6 @@ def runRL():
 
     global fil
     global ext
-    global tell
 
     # Logg noe
     logger.info("Kjører runRL")
@@ -74,19 +63,21 @@ def runRL():
     authname = ""
 
     # filtrerer på label-/artist-/authornavn og lager en ny dataframe ("takes") av kun de aktuelle radene
-    takes = disco.loc[disco['Label'].str.contains(label, case=False)].copy()
+    takes = disco.loc[disco["Label"].str.contains(label, case=False, na=False)].copy()
     # og, logisk AND
-    takes = takes.loc[disco['Artists'].str.contains(artname, case = False)].copy()
+    takes = takes.loc[takes["Artists"].str.contains(artname, case=False, na=False)].copy()
     # og, logisk AND
-    takes = takes.loc[disco['Authors'].str.contains(authname, case = False)].copy()
+    takes = takes.loc[takes["Authors"].str.contains(authname, case=False, na=False)].copy()
 
     # lager en ny kolonne for den numeriske delen av CatNo1 for å bruken den til sortering
     takes["CatNo1sort"] = takes["CatNo1"].apply(get_rightmost_numeric_element)
     takes["CatNo1sort"] = takes["CatNo1sort"].astype(int)
 
-    # fjerner alle rader uten Label
-    takes["Label"].replace("", np.nan, inplace = True)
-    takes = takes.dropna()
+    # erstatt tom streng med NaN i kolonnen
+    takes["Label"] = takes["Label"].replace("", np.nan)
+
+    # dropp bare rader der Label er NaN (ikke hele DF)
+    takes = takes.dropna(subset=["Label"]).copy()
 
     # takes sorteres i releaserekkefølge
     takes.sort_values(["Label","CatNo1sort","Mx1"], axis = 0, ascending=True, inplace=True, na_position='first')
@@ -236,16 +227,13 @@ def runRL():
             oldrelease = thisrelease
             oldaltrelease = thisaltrelease
             oldmedium = thismedium
-            tell = ind + 1
 
-            update_run()
 
 # Denne rutinen leser en csv-eksport fra DiscoM og skriver en tagged txt Indesign-format i matrise-rekkefølge
 def runMX():
 
     global fil
     global ext
-    global tell
 
     # øker størrelse på celler og antall kolonner
     pd.options.display.max_columns = None
@@ -267,11 +255,11 @@ def runMX():
     authname = ""
 
     # filtrerer på label-/artist-/authornavn og lager en ny dataframe ("takes") av kun de aktuelle radene
-    takes = disco.loc[disco['Label'].str.contains(label, case=False)].copy()
+    takes = disco.loc[disco["Label"].str.contains(label, case=False, na=False)].copy()
     # og, logisk AND
-    takes = takes.loc[disco['Artists'].str.contains(artname, case = False)].copy()
+    takes = takes.loc[takes["Artists"].str.contains(artname, case=False, na=False)].copy()
     # og, logisk AND
-    takes = takes.loc[disco['Authors'].str.contains(authname, case = False)].copy()
+    takes = takes.loc[takes["Authors"].str.contains(authname, case=False, na=False)].copy()
 
     # lager en ny kolonne for den numeriske delen av Mx1 for å bruken den til sortering
     takes["Mx1sort"] = takes["Mx1"].apply(get_rightmost_numeric_element)
@@ -406,9 +394,6 @@ def runMX():
             # gjør klar for ny løkke
             oldmatrix = thismatrix
 
-            tell = ind + 1
-            update_run()
-
         # skriver ut den siste navne-/verktabellen
         print(table, file = f)
 
@@ -420,7 +405,6 @@ def AllNames():
 
     global fil
     global ext
-    global tell
 
     # filnavn
     discofile = fil + ext
@@ -444,60 +428,3 @@ def AllNames():
 
     # Save to Excel only
     namelist.to_excel(outputfile, header=False, index=False)
-
-def select_file():
-    global fil
-    global ext
-    filetypes = (('csv files', '*.csv'), ('tsv files', '*.tsv'))
-
-    infile = fd.askopenfilename(
-        title = 'Open a file',
-        initialdir = 'C:\\Users\\tore\\OneDrive\\PyPro\\kurs',
-        filetypes = filetypes)
-    infile = os.path.basename(infile)
-    fil, ext = os.path.splitext(infile)
-    update_label()
-
-def update_label():
-    global fil
-    out_label.config(text = f"Inputfil: {fil}{ext}")
-
-def update_run():
-    global tell
-    run_label.config(text = f"Antall rader lest: {tell}")
-
-if __name__ == "__main__":
-
-    # window
-    window = tk.Tk()
-    window.title("Norsk Forening for Historisk Lyd")
-    window.geometry("500x150")
-
-    # title
-    title_label = ttk.Label(master = window, text = "csv til InDesign tagged txt", font = "Lato 18 bold")
-    title_label.pack()
-
-    # input fields
-    input_frame = ttk.Frame(master = window)
-    input_frame.pack(pady = 20)
-
-    # labels
-    run_label = ttk.Label(master = input_frame, text = "")
-    run_label.pack(side = "bottom")
-    out_label = ttk.Label(master = input_frame, text = "")
-    out_label.pack(side = "bottom")
-
-    # buttons
-    buttonselect = ttk.Button(master = input_frame, text = "Select file", command = select_file)
-    buttonselect.pack(side = "right")
-
-    buttonrunRL = ttk.Button(master = input_frame, text = "Run RL", command = runRL)
-    buttonrunRL.pack(side = "left")
-
-    buttonrunMX = ttk.Button(master = input_frame, text = "Run MX", command = runMX)
-    buttonrunMX.pack(side = "left")
-
-    buttonrunMX = ttk.Button(master = input_frame, text = "Check names", command = AllNames)
-    buttonrunMX.pack(side = "left")
-
-    window.mainloop()
