@@ -24,18 +24,35 @@
       method: form.method,
       body: formData
     })
-    .then(response => {
+    .then(async response => {
       if (!response.ok) throw new Error('Nettverksfeil');
-      return response.blob();
-    })
-    .then(blob => {
+      const blob = await response.blob();
+
+      // Try to extract filename from Content-Disposition header set by FileResponse
+      let filename = 'result.csv';
+      const cd = response.headers.get('content-disposition');
+      if (cd) {
+        // Try several patterns: RFC5987 (filename*=), quoted filename, or bare filename
+        const rfc5987 = /filename\*=[^']+'[^']*'([^;\n\r]+)/i.exec(cd);
+        const quoted = /filename="([^"]+)"/i.exec(cd);
+        const bare = /filename=([^;\n\r]+)/i.exec(cd);
+        if (rfc5987 && rfc5987[1]) {
+          try { filename = decodeURIComponent(rfc5987[1]); } catch(_) { filename = rfc5987[1]; }
+        } else if (quoted && quoted[1]) {
+          filename = quoted[1];
+        } else if (bare && bare[1]) {
+          filename = bare[1];
+        }
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = 'result.csv';
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
+      a.remove();
       window.URL.revokeObjectURL(url);
     })
     .catch(error => alert('Noe gikk galt: ' + error.message));
