@@ -1,0 +1,96 @@
+# Diskografi-konvertering – Oversikts-README
+
+Dette prosjektet er en FastAPI-applikasjon som konverterer CSV-eksporter fra DiscoM til forskjellige utdatafiler (InDesign-tekst, Excel-lister osv.).
+Formålet med denne README er å gi en **oversikt over hvordan systemet er bygget opp og driftes**, uten å være en steg-for-steg manual.
+Den kan brukes av fremtidige utviklere (eller fremtidige meg) for å forstå arkitekturen og sette opp systemet i et annet miljø.
+
+---
+
+## Utviklingsmiljø (lokalt)
+- Koden utvikles i **IntelliJ IDEA** med **Python-plugin**.
+- Prosjektet ligger i en **virtuell Python-miljø (venv)** for å isolere avhengigheter.
+- Alle avhengigheter (FastAPI, Uvicorn, Pandas, Numpy, Openpyxl osv.) listes i `requirements.txt`.
+- Applikasjonen kan kjøres enten i *Run mode* eller *Debug mode* direkte fra IntelliJ.
+- Under utvikling kjøres appen typisk med:
+  - `uvicorn app.main:app --reload` (automatisk restart ved kodeendring)
+  - Debugging krever litt ekstra konfig i IntelliJ, men fungerer.
+
+---
+
+## Applikasjon
+- Språk: **Python 3.13**
+- Framework: **FastAPI** (med Starlette under)
+- Server: **Uvicorn** (ASGI)
+- Kode ligger i `app/`-mappen.
+- `main.py` definerer HTTP-endepunkter:
+  - `/` → returnerer index.html (frontend)
+  - `/convert` → tar imot en CSV og et valg av funksjon (`runRL`, `runMX`, `AllNames`) og returnerer en generert fil
+- `logikk.py` inneholder kjernelogikken:
+  - Lesing og filtrering av CSV med Pandas
+  - Generering av InDesign-tekstfiler
+  - Generering av Excel-filer med navn
+- Midlertidige filer håndteres via `tempfile.mkdtemp()` og slettes automatisk etter bruk.
+- Koden er skrevet for å være selvstendig, og kan kjøres både lokalt og på server.
+
+---
+
+## Servermiljø
+- Server kjører **Ubuntu 24.04 LTS**.
+- Python 3.13 installert fra **deadsnakes PPA** (eller tilsvarende kilde).
+- Applikasjonen legges i `/opt/diskografi`.
+- En egen systembruker `diskografi` eier koden og kjører tjenesten.
+- En **virtualenv (.venv)** opprettes under `/opt/diskografi`, hvor alle Python-avhengigheter installeres.
+- `requirements.txt` brukes for å installere riktige pakker.
+- Applikasjonen kjører som en systemd-tjeneste (`diskografi.service`), som starter automatisk ved boot.
+- Logging skjer via `journalctl`.
+
+---
+
+## Reverse proxy / TLS
+- **Nginx** brukes som frontend-proxy:
+  - Lytter på port 80/443
+  - Sender trafikk videre til Uvicorn (127.0.0.1:9000)
+  - Setter riktige proxy-headere
+- HTTP (80) redirecter til HTTPS (443).
+- Sertifikater håndteres av **Let’s Encrypt (certbot)**.
+- Sertifikater fornyes automatisk via systemd timer.
+- DNS peker domenet `diskografi-konvertering.no` til serverens IP.
+
+---
+
+## Ressurser og last
+- Tjenesten er laget for lav last (f.eks. 1 kjøring per dag).
+- `uvicorn` kjøres med **1 worker-prosess** (nok for små oppgaver, mindre minneforbruk).
+- Typisk baseline-minne er 70–140 MB pga. Pandas/Numpy.
+- Midlertidige filer havner i `/tmp` (root-partisjon, ~33 GB ledig).
+- CSV/Excel-filer er små nok til at minne/disk ikke er en bekymring.
+
+---
+
+## Viktige prinsipper
+- **Isolert miljø:** all Python-kjøring skjer i `.venv`.
+- **Konfig via systemd:** uvicorn kjører som en tjeneste, restart håndteres automatisk.
+- **Reverse proxy:** all trafikk går via Nginx, som håndterer TLS og domenenavn.
+- **Ephemeral tmp:** midlertidige filer opprettes og slettes per request.
+- **Enkel oppdatering:** synk kode → pip install -r requirements.txt → restart service.
+- **Ikke driftskritisk:** løsningen er bygd for enkelhet fremfor maksimal skalerbarhet.
+
+---
+
+## Bruk for fremtiden
+- Denne README er ment som en *huskeliste*, ikke en eksakt manual.
+- Hvis systemet skal settes opp på nytt:
+  1. Sørg for et fungerende Python 3.13-miljø.
+  2. Opprett en prosjektmappe og `.venv`.
+  3. Installer avhengigheter fra `requirements.txt`.
+  4. Kjør FastAPI via Uvicorn (manuelt eller med systemd).
+  5. Sett opp Nginx (eller annen reverse proxy) foran appen.
+  6. Legg på TLS (f.eks. Let’s Encrypt).
+- Miljøet kan like gjerne settes opp i Docker, på en annen distro eller via en annen IDE enn IntelliJ – prinsippene er de samme.
+
+---
+
+## Til fremtidige meg (eller andre som arver dette)
+- Husk at mye av kompleksiteten ligger i Pandas-logikken for CSV-behandling.
+- Backend/infra-oppsettet er standard FastAPI + Uvicorn + systemd + Nginx + Let’s Encrypt.
+- Løsningen er bevisst laget enkel fordi den bare trenger å kjøre sporadisk.
