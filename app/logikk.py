@@ -92,7 +92,8 @@ def runRL():
 
     # åpner fil for utskrift til InDesign tagged txt format
 
-    with open(outputfile, "w", encoding="utf-16") as f:
+    with open(outputfile, "w", encoding="utf-16-le") as f:
+        f.write("\ufeff")  # skriver BOM (U+FEFF)
 
         # skriv definisjoner
         print(C.Code, file = f)
@@ -276,7 +277,8 @@ def runMX():
     table = ""
 
     # åpner fil for utskrift til InDesign tagged txt format
-    with open(outputfile, "w", encoding="utf-16") as f:
+    with open(outputfile, "w", encoding="utf-16-le") as f:
+        f.write("\ufeff")  # skriver BOM (U+FEFF)
 
         # skriv InDesign-definisjoner
         print(C.Code, file = f)
