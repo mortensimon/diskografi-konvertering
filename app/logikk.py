@@ -17,22 +17,23 @@ fil = ""
 ext = ""
 logger = logging.getLogger(__name__)
 
+# Funksjon for å hente høyre-nærmeste numeriske element (før evt. bindestrek)
 def get_rightmost_numeric_element(s):
-    # Split the string into words
     words = s.split()
-
-    # Reverse the list to start from the right
-    words.reverse()
-
-    # Iterate over the reversed list
-    for word in words:
-        # Check if the word is numeric
-        if word.isdigit():
-            # Return the numeric word
-            return word
-
-    # If no numeric element is found, return 0
+    for word in reversed(words):
+        first_part = word.split('-')[0]
+        if first_part.isdigit():
+            return first_part
     return 0
+
+# Funksjon for å hente alt før det numeriske elementet
+def prefix(s):
+    words = s.split()
+    for i in range(len(words) - 1, -1, -1):
+        first_part = words[i].split('-')[0]
+        if first_part.isdigit():
+            return ' '.join(words[:i])
+    return s
 
 # Denne rutinen leser en csv-eksport fra DiscoM og skriver en tagged txt kompakt Indesign-format i release-rekkefølge
 def runRL():
@@ -57,21 +58,23 @@ def runRL():
     # leser en CSV-fil til en DataFrame, gjør blanke celler om til tomme strenger, leser "RelMedium" og "CatNo1" som tekststreng
     disco = pd.read_csv(discofile, keep_default_na=False, dtype={"RelMedium": str, "CatNo1": str})
 
-    # les inn søkestrenger, blank betyr velg alt
-    label = ""
-    artname = ""
-    authname = ""
+    ## les inn søkestrenger, blank betyr velg alt
+    #label = ""
+    #artname = ""
+    #authname = ""
 
-    # filtrerer på label-/artist-/authornavn og lager en ny dataframe ("takes") av kun de aktuelle radene
-    takes = disco.loc[disco["Label"].str.contains(label, case=False, na=False)].copy()
-    # og, logisk AND
-    takes = takes.loc[takes["Artists"].str.contains(artname, case=False, na=False)].copy()
-    # og, logisk AND
-    takes = takes.loc[takes["Authors"].str.contains(authname, case=False, na=False)].copy()
+    ## filtrerer på label-/artist-/authornavn og lager en ny dataframe ("takes") av kun de aktuelle radene
+    takes = disco.loc[disco["Label"].str.contains("", case=False, na=False)].copy()
+    ## og, logisk AND
+    takes = takes.loc[takes["Artists"].str.contains("", case=False, na=False)].copy()
+    ## og, logisk AND
+    takes = takes.loc[takes["Authors"].str.contains("", case=False, na=False)].copy()
 
-    # lager en ny kolonne for den numeriske delen av CatNo1 for å bruken den til sortering
-    takes["CatNo1sort"] = takes["CatNo1"].apply(get_rightmost_numeric_element)
-    takes["CatNo1sort"] = takes["CatNo1sort"].astype(int)
+    # Legg til to nye kolonner i DataFrame for å kunne sortere
+    takes["CatNo1sort"] = takes["CatNo1"].apply(get_rightmost_numeric_element).astype(int)
+    takes["CatNo1prefix"] = takes["CatNo1"].apply(prefix)
+
+    #takes = disco
 
     # erstatt tom streng med NaN i kolonnen
     takes["Label"] = takes["Label"].replace("", np.nan)
@@ -80,7 +83,8 @@ def runRL():
     takes = takes.dropna(subset=["Label"]).copy()
 
     # takes sorteres i releaserekkefølge
-    takes.sort_values(["Label","CatNo1sort","Mx1"], axis = 0, ascending=True, inplace=True, na_position='first')
+    takes["CatNo1prefix"] = takes["CatNo1prefix"].astype(str)
+    takes.sort_values(["Label","CatNo1prefix", "CatNo1sort","Mx1"], axis = 0, ascending=True, inplace=True, na_position='first')
 
     # legger på en ekstra rad med blank Label slik at løkken nedenfor ikke stopper for tidlig
     new_row = pd.DataFrame({"Label": [""]}, index = [len(takes)])
@@ -262,15 +266,16 @@ def runMX():
     # og, logisk AND
     takes = takes.loc[takes["Authors"].str.contains(authname, case=False, na=False)].copy()
 
-    # lager en ny kolonne for den numeriske delen av Mx1 for å bruken den til sortering
+    # lager nye kolonner av Mx1 for å bruken dem til sortering
     takes["Mx1sort"] = takes["Mx1"].apply(get_rightmost_numeric_element)
     takes["Mx1sort"] = takes["Mx1sort"].astype(int)
+    takes["Mx1prefix"] = takes["Mx1"].apply(prefix)
+    takes["Mx1prefix"] = takes["Mx1prefix"].astype(str)
+    takes["CatNo1sort"] = takes["CatNo1"].apply(get_rightmost_numeric_element).astype(int)
+    takes["CatNo1prefix"] = takes["CatNo1"].apply(prefix).astype(str)
 
     # det nye datasettet sorteres på matrisenr
-    takes.sort_values(["Mx1sort"],axis=0, ascending=True,inplace=True,na_position='first')
-
-    # evt på sorteringsdato og matrisenr
-    #takes.sort_values(["DateSort","Mx1sort"],axis=0, ascending=True,inplace=True,na_position='first')
+    takes.sort_values(["Mx1prefix","Mx1sort", "Label", "CatNo1prefix","CatNo1sort"],axis=0, ascending=True,inplace=True,na_position='first')
 
     # startverdier
     oldmatrix = ""
