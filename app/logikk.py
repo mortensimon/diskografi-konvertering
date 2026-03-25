@@ -370,7 +370,7 @@ def runMX():
             linkstart = "Side " + takes["SideNo"][ind] # blir lenkestart i InDesign
             linklen = len(linkstart)
 
-            # bytter sære matrisetegn ut med tillatte tegn
+            # bytter sære matrisetegn ut med tillatte tegn 
             if "¼" in takes["Mx1"][ind]:
                 mxpic = takes["Mx1"][ind].replace("¼", "x1")
             elif "½" in takes["Mx1"][ind]:
